@@ -11,6 +11,10 @@ variable "aws_endpoint" {
   default = ""
 }
 
+variable "id" {
+  type = string
+}
+
 variable "backend_count" {
   default = 1
 }
@@ -49,6 +53,11 @@ variable "iam_cert" {
 }
 
 variable "configure_ssh" {
+  default = false
+  type    = bool
+}
+
+variable "pre_provisioned_cert" {
   default = false
   type    = bool
 }

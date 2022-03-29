@@ -16,8 +16,8 @@ data "aws_subnets" "subnets" {
 
 resource "aws_security_group" "backend" {
   vpc_id = data.aws_vpc.vpc.id
-  name   = format("%s-backend", var.lb_name)
-  tags   = { "Name" : format("%s-backend", var.lb_name) }
+  name   = format("%s-backend-%s", var.lb_name, var.id)
+  tags   = { "Name" : format("%s-backend-%s", var.lb_name, var.id) }
 
   ingress {
     from_port       = 80
@@ -48,8 +48,8 @@ resource "aws_security_group_rule" "ssh" {
 
 resource "aws_security_group" "sg" {
   vpc_id = data.aws_vpc.vpc.id
-  name   = var.lb_name
-  tags   = { "Name" : var.lb_name }
+  name   = format("%s-%s", var.lb_name, var.id)
+  tags   = { "Name" : format("%s-%s", var.lb_name, var.id) }
 
   ingress {
     from_port = 0
@@ -103,14 +103,20 @@ data "aws_ami" "ami" {
 }
 
 resource "aws_acm_certificate" "cert" {
-  count = var.iam_cert ? 0 : 1
+  count = var.iam_cert || var.pre_provisioned_cert ? 0 : 1
 
   domain_name       = var.cert_dns_name
   validation_method = "DNS"
 }
 
+data "aws_acm_certificate" "cert" {
+  count = var.pre_provisioned_cert ? 1 : 0
+
+  domain = var.cert_dns_name
+}
+
 resource "aws_elb" "clb" {
-  name                      = var.lb_name
+  name                      = format("%s-%s", var.lb_name, var.id)
   internal                  = var.lb_internal
   subnets                   = data.aws_subnets.subnets.ids
   cross_zone_load_balancing = true
@@ -124,7 +130,7 @@ resource "aws_elb" "clb" {
     lb_port            = 443
     instance_protocol  = "http"
     instance_port      = 80
-    ssl_certificate_id = var.iam_cert ? aws_iam_server_certificate.this.0.arn : aws_acm_certificate.cert.0.arn
+    ssl_certificate_id = var.iam_cert ? aws_iam_server_certificate.this.0.arn : try(aws_acm_certificate.cert.0.arn, data.aws_acm_certificate.cert.0.arn)
   }
 
   listener {
@@ -151,7 +157,7 @@ resource "aws_instance" "backend" {
   vpc_security_group_ids      = [aws_security_group.backend.id]
   associate_public_ip_address = true
   key_name                    = var.configure_ssh ? aws_key_pair.this.0.id : null
-  tags                        = { "Name" : "${format("%s-backend-%02d", var.lb_name, count.index + 1)}" }
+  tags                        = { "Name" : "${format("%s-backend-%s-%02d", var.lb_name, var.id, count.index + 1)}" }
   user_data                   = <<-USERDATA
     #!/bin/bash
     apt-get update

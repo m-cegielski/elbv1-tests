@@ -9,16 +9,22 @@ import (
 
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	http_helper "github.com/gruntwork-io/terratest/modules/http-helper"
-
+  "github.com/gruntwork-io/terratest/modules/random"
 )
 
 func TestTerraformAwsElb(t *testing.T) {
 	t.Parallel()
 
+	uniqueID := random.UniqueId()
+
 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
 		TerraformDir: "../",
-		VarFiles: []string{"envs/dev2.tfvars"},
+		VarFiles: []string{"envs/stg2.tfvars"},
 		NoColor: true,
+
+		Vars: map[string]interface{}{
+			"id": uniqueID,
+		},
 	})
 
 	defer terraform.Destroy(t, terraformOptions)
@@ -35,7 +41,7 @@ func TestTerraformAwsElb(t *testing.T) {
 	urlBody := fmt.Sprintf("<html><body><h1>%s</h1></body></html>", expectedText)
 
 	tlsConfig := tls.Config{InsecureSkipVerify: true}
-	maxRetries := 30
+	maxRetries := 20
 	timeBetweenRetries := 10 * time.Second
 
 	http_helper.HttpGetWithRetry(t, httpsUrl, &tlsConfig, 200, urlBody, maxRetries, timeBetweenRetries)
