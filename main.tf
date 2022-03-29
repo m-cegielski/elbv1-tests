@@ -121,6 +121,14 @@ resource "aws_elb" "clb" {
   subnets                   = data.aws_subnets.subnets.ids
   cross_zone_load_balancing = true
 
+  health_check {
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 3
+    target              = "HTTP:80/"
+    interval            = 5
+  }
+
   security_groups = [
     aws_security_group.sg.id,
   ]
